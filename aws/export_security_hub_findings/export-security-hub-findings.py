@@ -8,22 +8,6 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def flatten_dict(d, parent_key='', sep='_'):
-    items = []
-    for k, v in d.items():
-        new_key = f"{parent_key}{sep}{k}" if parent_key else k
-        if isinstance(v, dict):
-            items.extend(flatten_dict(v, new_key, sep=sep).items())
-        elif isinstance(v, list):
-            for i, item in enumerate(v):
-                if isinstance(item, dict):
-                    items.extend(flatten_dict(item, f"{new_key}{sep}{i}", sep=sep).items())
-                else:
-                    items.append((f"{new_key}{sep}{i}", str(item)))
-        else:
-            items.append((new_key, str(v)))
-    return dict(items)
-
 def lambda_handler(event, context):
     logger.info("Starting Security Hub findings export")
 
@@ -42,6 +26,14 @@ def lambda_handler(event, context):
         ],
         'RecordState': [
             {'Value': 'ACTIVE', 'Comparison': 'EQUALS'}
+        ],
+        'SeverityLabel': [
+            {'Value': 'CRITICAL', 'Comparison': 'EQUALS'},
+            {'Value': 'HIGH', 'Comparison': 'EQUALS'},
+            {'Value': 'MEDIUM', 'Comparison': 'EQUALS'}
+        ],
+        'ProductName': [
+            {'Value': 'Inspector', 'Comparison': 'NOT_EQUALS'}
         ]
     }
     logger.info(f"Using filter: {json.dumps(_filter)}")
@@ -50,6 +42,16 @@ def lambda_handler(event, context):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"security_hub_findings_{timestamp}.csv"
     logger.info(f"Generated filename: {filename}")
+
+    # Define the fields we want to export
+    fields = [
+        'Title', 'Description', 'Severity_Label', 'Severity_Normalized', 
+        'Types', 'ProductName', 'CompanyName', 'Region', 
+        'ResourceType', 'ResourceId', 'AwsAccountId', 'Compliance_Status', 
+        'Workflow_Status', 'FirstObservedAt', 'LastObservedAt',
+        'Remediation_Recommendation_Text'
+    ]
+    logger.info(f"Fields to be exported: {', '.join(fields)}")
 
     # Initialize pagination
     next_token = None
@@ -76,26 +78,31 @@ def lambda_handler(event, context):
 
     logger.info(f"Total findings retrieved: {len(all_findings)}")
 
-    # Flatten all findings
-    logger.info("Flattening findings")
-    flattened_findings = [flatten_dict(finding) for finding in all_findings]
-
-    # Get all unique keys across all flattened findings
-    all_keys = set()
-    for finding in flattened_findings:
-        all_keys.update(finding.keys())
-
-    # Sort keys for consistent column order
-    sorted_keys = sorted(all_keys)
-    logger.info(f"Total unique keys in findings: {len(sorted_keys)}")
-
     # Write to CSV
     logger.info(f"Writing findings to CSV file: {filename}")
     with open(filename, "w", newline='', encoding='utf-8') as csvfile:
-        csvwriter = csv.DictWriter(csvfile, fieldnames=sorted_keys)
+        csvwriter = csv.DictWriter(csvfile, fieldnames=fields)
         csvwriter.writeheader()
-        for finding in flattened_findings:
-            csvwriter.writerow(finding)
+        for finding in all_findings:
+            row = {
+                'Title': finding.get('Title', ''),
+                'Description': finding.get('Description', ''),
+                'AwsAccountId': finding.get('AwsAccountId', ''),
+                'Severity_Label': finding.get('Severity', {}).get('Label', ''),
+                'Severity_Normalized': finding.get('Severity', {}).get('Normalized', ''),
+                'Types': ', '.join(finding.get('Types', [])),
+                'ProductName': finding.get('ProductName', ''),
+                'CompanyName': finding.get('CompanyName', ''),
+                'Region': finding.get('Region', ''),
+                'ResourceType': finding.get('Resources', [{}])[0].get('Type', ''),
+                'ResourceId': finding.get('Resources', [{}])[0].get('Id', ''),
+                'Compliance_Status': finding.get('Compliance', {}).get('Status', ''),
+                'Workflow_Status': finding.get('Workflow', {}).get('Status', ''),
+                'FirstObservedAt': finding.get('FirstObservedAt', ''),
+                'LastObservedAt': finding.get('LastObservedAt', ''),
+                'Remediation_Recommendation_Text': finding.get('Remediation', {}).get('Recommendation', {}).get('Text', '')
+            }
+            csvwriter.writerow(row)
 
     logger.info(f"Successfully exported {len(all_findings)} findings to {filename}")
 
