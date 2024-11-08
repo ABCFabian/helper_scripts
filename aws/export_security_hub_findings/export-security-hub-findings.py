@@ -45,7 +45,7 @@ def lambda_handler(event, context):
 
     # Define the fields we want to export
     fields = [
-        'Title', 'Description', 'Severity_Label', 'Severity_Normalized', 
+        'Id', 'Title', 'Description', 'Severity_Label', 'Severity_Normalized', 
         'Types', 'ProductName', 'CompanyName', 'Region', 
         'ResourceType', 'ResourceId', 'AwsAccountId', 'Compliance_Status', 
         'Workflow_Status', 'FirstObservedAt', 'LastObservedAt',
@@ -85,6 +85,7 @@ def lambda_handler(event, context):
         csvwriter.writeheader()
         for finding in all_findings:
             row = {
+                'Id': finding.get('Id', ''),
                 'Title': finding.get('Title', ''),
                 'Description': finding.get('Description', ''),
                 'AwsAccountId': finding.get('AwsAccountId', ''),
