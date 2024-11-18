@@ -38,7 +38,7 @@ def get_console_url(credentials):
     except json.JSONDecodeError:
         raise Exception("Failed to decode JSON. Response might not be valid JSON.")
     
-    console_url = f"{federation_url}?Action=login&Issuer=Example.org&Destination=https%3A%2F%2Fconsole.aws.amazon.com%2F&SigninToken={signin_token}"
+    console_url = f"\n\n{federation_url}?Action=login&Issuer=Example.org&Destination=https%3A%2F%2Fconsole.aws.amazon.com%2F&SigninToken={signin_token}"
     return console_url
 
 def main():
