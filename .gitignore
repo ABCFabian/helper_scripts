@@ -163,3 +163,4 @@ cython_debug/
 .DS_Store
 
 security_hub_findings_*.csv
+*.csv
